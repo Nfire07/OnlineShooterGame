@@ -5,8 +5,16 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.geom.Line2D;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class Player extends GameObject {
     float speed = 300.0f; 
@@ -15,8 +23,8 @@ public class Player extends GameObject {
     float acceleration = 2000.0f; 
     float deceleration = 1500.0f;
     int hp = 100;
-    int hpBarWidth=100;
-    int hpBarHeight=20;
+    int hpBarWidth = 100;
+    int hpBarHeight = 20;
     
     double fov = 30;
     int rayLength = 300;
@@ -31,10 +39,31 @@ public class Player extends GameObject {
     ArrayList<Bullet> bullets;
     InputManager inputManager;
     
+    Socket socket;
+    PrintWriter pw;
+    BufferedReader br;
+    
     public Player(String ObjectName, Rectangle[] hitbox, Image[] sprite, float x, float y, InputManager inputManager) {
         super(ObjectName, hitbox, sprite, x, y);
         bullets = new ArrayList<Bullet>();
         this.inputManager = inputManager;
+        try {
+			br = new BufferedReader(new FileReader(new File("settings.conf")));
+			int port = Integer.parseInt(br.readLine());
+			String ip = br.readLine();
+			br.close();
+			
+			socket = new Socket(ip,port);
+			pw = new PrintWriter(socket.getOutputStream());
+			br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			
+			
+			System.out.println("log:" + br.readLine());
+			System.out.println("log:" + br.readLine());
+			System.out.println("log:" + br.readLine());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
     }
     
     public int getCenterX() {
@@ -120,6 +149,26 @@ public class Player extends GameObject {
         return false;
     }
     
+    public boolean isPointBlockedByTile(Point point, List<GameObject> gameObjects) {
+        Line2D rayLine = new Line2D.Float(getCenterX(), getCenterY(), point.x, point.y);
+        
+        for(GameObject obj : gameObjects) {
+            if(obj instanceof Tile) {
+                Tile tile = (Tile)obj;
+                if(tile.hitbox.length > 0 && rayLine.intersects(tile.hitbox[0])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    public double getDistanceToPoint(Point p) {
+        int dx = getCenterX() - p.x;
+        int dy = getCenterY() - p.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
     public void drawHP(Graphics2D g2d) {
         int currentBarWidth = (int)((hp / 100.0f) * hpBarWidth);
         int barRelativePos = 30;
@@ -134,27 +183,33 @@ public class Player extends GameObject {
         g2d.drawRect(getCenterX() - hpBarWidth/2, getCenterY() + barRelativePos, hpBarWidth, hpBarHeight);
     }
     
-    public void checkRayIntersections(ArrayList<GameObject> gameObjects) {
+    public void checkRayIntersections(List<GameObject> gameObjects) {
         if(leftRayEnd == null || rightRayEnd == null) return;
         
         Polygon fovTriangle = getFOVTriangle();
-        for(int i = 1; i < gameObjects.size(); i++) {
-        	Enemy enemy;
-        	try {
-        		enemy = (Enemy)gameObjects.get(i);
-        	}catch (Exception e) {
-        		continue;
-			}
-            enemy.setVisible(false);
-            if (triangleIntersectsRectangle(fovTriangle, enemy.hitbox[0])) {
-                enemy.setVisible(true);
+        
+        for(GameObject obj : gameObjects) {
+            if(obj instanceof Enemy) {
+                Enemy enemy = (Enemy)obj;
+                enemy.setVisible(false);
+                
+                if (triangleIntersectsRectangle(fovTriangle, enemy.hitbox[0])) {
+                    Point enemyCenter = new Point(
+                        enemy.hitbox[0].x + enemy.hitbox[0].width / 2,
+                        enemy.hitbox[0].y + enemy.hitbox[0].height / 2
+                    );
+                    
+                    if (!isPointBlockedByTile(enemyCenter, gameObjects)) {
+                        enemy.setVisible(true);
+                    }
+                }
             }
         }
     }
 
     @Override
     public void UpdatePosition(float deltaTime) {
-    	this.hitbox = updateHitbox();
+        this.hitbox = updateHitbox();
         float inputX = 0;
         float inputY = 0;
         
@@ -209,48 +264,42 @@ public class Player extends GameObject {
         x += currentVelocityX * deltaTime;
         y += currentVelocityY * deltaTime;
         
-        
-        
         bullets.removeIf(bullet -> {
             bullet.updateBullet(deltaTime);
             return bullet.bulletExploded();
         });
     }
     
-    public void checkForHit(GameObject o){
-    	Enemy[] enemy = new Enemy[1];
-    	Tile[] tile = new Tile[1];
-    	try {
-    		enemy[0] = (Enemy)o;
-    	}catch (Exception e) {
-    		enemy[0] = null;
-    		try {
-    		tile[0] = (Tile)o;
-    		}catch (Exception ex) {
-        		return;
-			}
-    	}
-    	ArrayList<Bullet> hittingBullets = new ArrayList<>();
-    	if(enemy[0]!=null) {
-    		bullets.forEach(b->{
-    			if(enemy[0].checkForBulletPenetration(b.hitbox) && enemy[0].hp>0) {
-					enemy[0].hp-=b.damage;
-					System.out.println(enemy[0].hp);
-					b.setHitted(true);
-    			}
-    			if(b.hasHitted())
-    				hittingBullets.add(b);
-    		});
-    	}
-    	if(tile[0]!=null) {
-    		bullets.forEach(b->{
-    			if(tile[0].checkForIntersection(b.hitbox)) {
-					b.setHitted(true);
-    			}
-    			if(b.hasHitted())
-    				hittingBullets.add(b);
-    		});
-    	}
-    	bullets.removeAll(hittingBullets);
+    public void checkForHit(GameObject o) {
+        if(o instanceof Enemy) {
+            Enemy enemy = (Enemy)o;
+            ArrayList<Bullet> hittingBullets = new ArrayList<>();
+            
+            for(Bullet b : bullets) {
+                if(enemy.checkForBulletPenetration(b.hitbox) && enemy.hp > 0) {
+                    enemy.hp -= b.damage;
+                    if(GameObject.debugMode)
+                    	System.out.println("Enemy HP: " + enemy.hp);
+                    b.setHitted(true);
+                }
+                if(b.hasHitted()) {
+                    hittingBullets.add(b);
+                }
+            }
+            bullets.removeAll(hittingBullets);
+        } else if(o instanceof Tile) {
+            Tile tile = (Tile)o;
+            ArrayList<Bullet> hittingBullets = new ArrayList<>();
+            
+            for(Bullet b : bullets) {
+                if(tile.checkForIntersection(b.hitbox)) {
+                    b.setHitted(true);
+                }
+                if(b.hasHitted()) {
+                    hittingBullets.add(b);
+                }
+            }
+            bullets.removeAll(hittingBullets);
+        }
     }
 }

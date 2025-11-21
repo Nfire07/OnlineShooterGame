@@ -25,7 +25,7 @@ public class Window extends JFrame {
         
         GameAudio.addSound(new Sound("./assets/shoot.wav"));
         
-     // Player
+        // Player
         tempImage.add(Main.imageLoader("./assets/Player.png").getScaledInstance(entitySize, entitySize, Image.SCALE_FAST));
         tempHitbox.add(new Rectangle(0, 0, entitySize, entitySize)); 
 

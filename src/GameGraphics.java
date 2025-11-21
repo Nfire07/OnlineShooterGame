@@ -21,7 +21,7 @@ public class GameGraphics extends JPanel{
 		gameMap.draw(g2d);
 
 		gameObjects.forEach(o -> {
-			//o.drawHitbox(g2d,Color.GREEN);
+			o.drawHitbox(g2d,Color.GREEN);
 			if(o.isVisible()) {
 				o.drawSprite(g2d);
 				try {

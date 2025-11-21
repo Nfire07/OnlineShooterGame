@@ -41,7 +41,7 @@ public class WindowKeys implements KeyListener, MouseListener, MouseMotionListen
     
     @Override
     public void keyTyped(KeyEvent e) {
-        // Non usato più
+
     }
     
     @Override
