@@ -21,7 +21,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 public class Main {
-    public static final int GAME_MAP = 0;
+    public static int GAME_MAP = 0;
 	
     public static Image imageLoader(String filePath) {
         Image i = null;

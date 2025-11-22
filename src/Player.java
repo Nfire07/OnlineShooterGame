@@ -57,9 +57,7 @@ public class Player extends GameObject {
 			pw = new PrintWriter(socket.getOutputStream());
 			br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			
-			
-			System.out.println("log:" + br.readLine());
-			System.out.println("log:" + br.readLine());
+			Main.GAME_MAP = Integer.parseInt(br.readLine());
 			System.out.println("log:" + br.readLine());
 		} catch (IOException e) {
 			e.printStackTrace();
