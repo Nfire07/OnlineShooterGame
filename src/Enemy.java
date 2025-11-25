@@ -1,7 +1,9 @@
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.Rectangle;
+import java.io.IOException;
 
 public class Enemy extends GameObject {
 	int hp = 100;
@@ -14,7 +16,32 @@ public class Enemy extends GameObject {
 
 	@Override
 	public void UpdatePosition(float deltaTime) {
+		Point enemyPosition = getEnemyPosition();
+		this.x = enemyPosition.x;
+		this.y = enemyPosition.y;
+		this.updateHp();
 		this.hitbox = this.updateHitbox();
+	}
+
+	private Point getEnemyPosition() {
+		Point enemyPosition = null;
+		try {
+			String[] pos = Main.br.readLine().split(";");
+			enemyPosition = new Point(Integer.parseInt(pos[0]),Integer.parseInt(pos[1]));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return enemyPosition;
+	}
+	
+	private void updateHp() {
+		try {
+			this.hp = Integer.parseInt(Main.br.readLine());
+		} catch (NumberFormatException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public int getCenterX() {

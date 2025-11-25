@@ -189,6 +189,8 @@ public class Player extends GameObject {
     @Override
     public void UpdatePosition(float deltaTime) {
         this.hitbox = updateHitbox();
+        Main.pw.println((int)this.x + ";" + (int)this.y);
+        Main.pw.println((int)this.hp);
         float inputX = 0;
         float inputY = 0;
         
