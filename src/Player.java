@@ -38,30 +38,11 @@ public class Player extends GameObject {
     
     ArrayList<Bullet> bullets;
     InputManager inputManager;
-    
-    Socket socket;
-    PrintWriter pw;
-    BufferedReader br;
-    
+        
     public Player(String ObjectName, Rectangle[] hitbox, Image[] sprite, float x, float y, InputManager inputManager) {
         super(ObjectName, hitbox, sprite, x, y);
         bullets = new ArrayList<Bullet>();
         this.inputManager = inputManager;
-        try {
-			br = new BufferedReader(new FileReader(new File("settings.conf")));
-			int port = Integer.parseInt(br.readLine());
-			String ip = br.readLine();
-			br.close();
-			
-			socket = new Socket(ip,port);
-			pw = new PrintWriter(socket.getOutputStream());
-			br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			
-			Main.GAME_MAP = Integer.parseInt(br.readLine());
-			System.out.println("log:" + br.readLine());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
     }
     
     public int getCenterX() {

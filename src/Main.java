@@ -4,12 +4,17 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Image;
+import java.awt.Point;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.Socket;
+import java.net.UnknownHostException;
+
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -17,12 +22,16 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 public class Main {
     public static int GAME_MAP = 0;
-	
+    public static Socket socket = null;
+	public static PrintWriter pw = null;
+	public static BufferedReader br = null;
+	public static Point startingPos = null;
     public static Image imageLoader(String filePath) {
         Image i = null;
         if(GameObject.debugMode == true)
@@ -87,13 +96,15 @@ public class Main {
     	portLabel.setForeground(Color.WHITE);
     	portLabel.setAlignmentX(JLabel.LEFT_ALIGNMENT);
     	
-    	BufferedReader br;
+    	
     	String port = "";
 		String ip = "";
+		String nickname = "";
 		try {
-			br = new BufferedReader(new FileReader(new File("settings.conf")));
+			BufferedReader br = new BufferedReader(new FileReader(new File("settings.conf")));
 			port = br.readLine();
 			ip = br.readLine();
+			nickname = br.readLine();
 			br.close();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -122,6 +133,20 @@ public class Main {
     	ipField.setMaximumSize(new Dimension(500, 150));
     	ipField.setAlignmentX(JTextField.LEFT_ALIGNMENT);
     	
+    	JLabel nicknameLabel = new JLabel("Nickname:");
+    	nicknameLabel.setFont(new Font("Verdana", Font.BOLD, 30));
+    	nicknameLabel.setForeground(Color.WHITE);
+    	nicknameLabel.setAlignmentX(JLabel.LEFT_ALIGNMENT);
+    	
+    	JTextField nicknameField = new JTextField((nickname==null || nickname.isEmpty()) ? "" : nickname);
+    	nicknameField.setFont(new Font("Verdana", Font.BOLD, 30));
+    	nicknameField.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+    	nicknameField.setBackground(Color.DARK_GRAY);
+    	nicknameField.setForeground(Color.WHITE);
+    	nicknameField.setCaretColor(Color.WHITE);
+    	nicknameField.setMaximumSize(new Dimension(500, 150));
+    	nicknameField.setAlignmentX(JTextField.LEFT_ALIGNMENT);
+    	
     	JButton applyButton = createButton("Apply", "#0088ff");
     	
     	rightPanel.add(Box.createVerticalGlue());
@@ -132,6 +157,10 @@ public class Main {
     	rightPanel.add(ipLabel);
     	rightPanel.add(Box.createRigidArea(new Dimension(0, 15)));
     	rightPanel.add(ipField);
+    	rightPanel.add(Box.createVerticalGlue());
+    	rightPanel.add(nicknameLabel);
+    	rightPanel.add(Box.createRigidArea(new Dimension(0, 15)));
+    	rightPanel.add(nicknameField);
     	rightPanel.add(Box.createVerticalGlue());
     	rightPanel.add(applyButton);
     	rightPanel.add(Box.createVerticalGlue());
@@ -146,16 +175,17 @@ public class Main {
     	boolean[] settingsToggle = new boolean[1];
     	settingsToggle[0] = false;
     	
+    	String[] passedIp = new String[1]; 
+    	passedIp[0] = ip;
+    	int[] passedPort = new int[1];
+    	passedPort[0] = Integer.parseInt(port);
+    	String[] passedNickname = new String[1];
+    	passedNickname[0] = nickname;
+    	
     	startButton.addActionListener((e) -> {
     	    mainMenu.setVisible(false);
     	    mainMenu.dispose();
-    	    
-    	    Window w = new Window();
-    	    GameTimer timer = new GameTimer();
-    	    GameObject.setDebugMode(false);
-    	    final double TARGET_FPS = 60.0;
-    	    final double TARGET_FRAME_TIME = 1000.0 / TARGET_FPS;
-    	            
+        
     	    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
     	        GameAudio.shutdown();
     	    }));
@@ -163,48 +193,117 @@ public class Main {
     	    GameAudio.playSound(0);
     	    
     	    new Thread(() -> {
-    	        while(true) {
-    	            long frameStart = System.currentTimeMillis();
-    	            
-    	            float deltaTime = timer.update();
-    	            
-    	            w.inputManager.update();
-    	            w.gameObjects.forEach(obj -> obj.UpdatePosition(deltaTime));
-    	            
-    	            Player p = (Player)w.gameObjects.get(0);
-    	            
-    	            w.gameObjects.forEach(obj -> {
-    	                Tile t = null;
-    	                try {
-    	                    t = (Tile)obj;
-    	                } catch (Exception ex) {}
-    	                if(t != null)
-    	                    t.repulse(p);
-    	            });
 
-    	            p.checkRayIntersections(w.gameObjects);
-    	            w.gameObjects.forEach(obj -> {
-    	                p.checkForHit(obj);
-    	            });
-    	            
-    	            w.g.repaint();
-    	            
-    	            long frameTime = System.currentTimeMillis() - frameStart;
-    	            long sleepTime = (long)(TARGET_FRAME_TIME - frameTime);
-    	            
-    	            if(sleepTime > 0) {
-    	                try {
-    	                    Thread.sleep(sleepTime);
-    	                } catch (InterruptedException ex) {
-    	                    ex.printStackTrace();
-    	                }
-    	            }
-    	            
-    	            if(GameObject.debugMode) {
-    	                System.out.println("FPS: " + timer.getFPS() + " | DeltaTime: " + 
-    	                                   String.format("%.4f", deltaTime) + "s");
-    	            }
-    	        }
+    	    	try {
+					socket = new Socket(passedIp[0],passedPort[0]);
+					pw = new PrintWriter(socket.getOutputStream(),true);
+					br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+				} catch (NumberFormatException e1) {
+					e1.printStackTrace();
+				} catch (UnknownHostException e1) {
+					e1.printStackTrace();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+    	    	   	    		
+    	    	if(socket == null) {
+    	    		System.out.println("Connection Refused or unavalable");
+    	    		System.exit(-1);
+    	    	}
+    	    	
+    	    	if(pw == null) {
+    	    		System.out.println("Error");
+    	    		System.exit(-1);
+    	    	}
+    	    	
+    	    	if(br == null) {
+    	    		System.out.println("Error");
+    	    		System.exit(-1);
+    	    	}
+    	    	
+    	    	pw.println(passedNickname[0]);
+    	    	pw.println(Window.screen.width + "x" + Window.screen.height);
+    	    	
+    	    	try {
+
+    	    		final JFrame[] waitingWindow = new JFrame[1];
+    	    		new Thread(()->{
+    	    			waitingWindow[0] = new JFrame("Waiting...");
+    	    			waitingWindow[0].setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    	    			waitingWindow[0].setSize(300,100);
+    	    			waitingWindow[0].setLocationRelativeTo(null);
+    	    			waitingWindow[0].setResizable(false);
+    	    			
+    	    			JLabel waiting = new JLabel("Waiting for the other player...");
+    	    			waiting.setBounds(0,0,300,100);
+    	    			waiting.setHorizontalAlignment(JLabel.CENTER);
+    	    			waiting.setVerticalAlignment(JLabel.CENTER);
+    	    			waitingWindow[0].add(waiting);
+    	    			waitingWindow[0].setVisible(true);
+    	    		}).start();
+    	    		
+    	    		String line;
+    	    		Main.GAME_MAP = Integer.parseInt(br.readLine());
+    	    		String[] pos = br.readLine().split(";");
+    	    		Main.startingPos = new Point(Integer.parseInt(pos[0]),Integer.parseInt(pos[1]));
+    	    		
+    	    		while((line = br.readLine()) != null && !line.equals("START"));
+
+    	    		if(waitingWindow[0] != null) {
+    	    		    waitingWindow[0].dispose();
+    	    		}
+					
+    	    		Window w = new Window();
+    	    	    GameTimer timer = new GameTimer();
+    	    	    GameObject.setDebugMode(false);
+    	    	    final double TARGET_FPS = 60.0;
+    	    	    final double TARGET_FRAME_TIME = 1000.0 / TARGET_FPS;
+    	    		
+					while(true) {
+					    long frameStart = System.currentTimeMillis();
+					    
+					    float deltaTime = timer.update();
+					    
+					    w.inputManager.update();
+					    w.gameObjects.forEach(obj -> obj.UpdatePosition(deltaTime));
+					    
+					    Player p = (Player)w.gameObjects.get(0);
+					    
+					    w.gameObjects.forEach(obj -> {
+					        Tile t = null;
+					        try {
+					            t = (Tile)obj;
+					        } catch (Exception ex) {}
+					        if(t != null)
+					            t.repulse(p);
+					    });
+
+					    p.checkRayIntersections(w.gameObjects);
+					    w.gameObjects.forEach(obj -> {
+					        p.checkForHit(obj);
+					    });
+					    
+					    w.g.repaint();
+					    
+					    long frameTime = System.currentTimeMillis() - frameStart;
+					    long sleepTime = (long)(TARGET_FRAME_TIME - frameTime);
+					    
+					    if(sleepTime > 0) {
+					        try {
+					            Thread.sleep(sleepTime);
+					        } catch (InterruptedException ex) {
+					            ex.printStackTrace();
+					        }
+					    }
+					    
+					    if(GameObject.debugMode) {
+					        System.out.println("FPS: " + timer.getFPS() + " | DeltaTime: " + 
+					                           String.format("%.4f", deltaTime) + "s");
+					    }
+					}
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
     	    }).start();
     	});
     	
@@ -226,6 +325,7 @@ public class Main {
 				PrintWriter pw = new PrintWriter("settings.conf");
 				pw.println(portField.getText());
 				pw.println(ipField.getText());
+				pw.println(nicknameField.getText());
 				pw.close();
 			} catch (FileNotFoundException e1) {
 				e1.printStackTrace();

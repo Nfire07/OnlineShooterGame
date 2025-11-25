@@ -52,7 +52,7 @@ public class Window extends JFrame {
         GameMap gameMap = new GameMap(Main.GAME_MAP, screen.width, screen.height);
         gameObjects.addAll(gameMap.generateTiles());
 
-        int[] playerPos = gameMap.getPlayerStartPosition();
+        int[] playerPos = new int[] {Main.startingPos.x , Main.startingPos.y};
         if (playerPos != null) {
             gameObjects.get(0).x = playerPos[0] - 10;  
             gameObjects.get(0).y = playerPos[1] - 10;
@@ -60,12 +60,12 @@ public class Window extends JFrame {
             gameObjects.get(0).setVisible(true);
         }
 
-        int[] enemyPos = gameMap.getEnemyStartPosition();
+        int[] enemyPos = new int[] {-10000 , -10000};
         if (enemyPos != null) {
             gameObjects.get(1).x = enemyPos[0] - 10;  
             gameObjects.get(1).y = enemyPos[1] - 10;
             gameObjects.get(1).hitbox = gameObjects.get(1).updateHitbox();
-            gameObjects.get(1).setVisible(true);  
+            gameObjects.get(1).setVisible(false);  
         }
         
         tempImage.clear();
