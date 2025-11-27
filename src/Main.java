@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -22,9 +23,9 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 public class Main {
 	public static int GAME_MAP = 0;
@@ -32,6 +33,8 @@ public class Main {
 	public static PrintWriter pw = null;
 	public static BufferedReader br = null;
 	public static Point startingPos = null;
+	private static volatile boolean running = true;
+	private static volatile boolean gameEnded = false;
 
 	public static Image imageLoader(String filePath) {
 		Image i = null;
@@ -43,6 +46,53 @@ public class Main {
 			e.printStackTrace();
 		}
 		return i;
+	}
+
+	private static void showEndGameWindow(String result) {
+		SwingUtilities.invokeLater(() -> {
+			JFrame endGameWindow = new JFrame("Game Over");
+			endGameWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+			endGameWindow.setSize(500, 300);
+			endGameWindow.setLocationRelativeTo(null);
+			endGameWindow.setUndecorated(true);
+			endGameWindow.getContentPane().setBackground(Color.DARK_GRAY);
+			endGameWindow.setLayout(new BorderLayout());
+
+			JLabel resultLabel = new JLabel(result, JLabel.CENTER);
+			resultLabel.setFont(new Font("Verdana", Font.BOLD, 40));
+			resultLabel.setBorder(BorderFactory.createEmptyBorder(50, 20, 20, 20));
+
+			Color textColor;
+			if (result.contains("VICTORY")) {
+				textColor = new Color(0, 200, 0);
+			} else if (result.contains("DEFEAT")) {
+				textColor = new Color(200, 0, 0);
+			} else {
+				textColor = new Color(200, 200, 0);
+			}
+			resultLabel.setForeground(textColor);
+
+			JButton exitButton = new JButton("Exit");
+			exitButton.setBackground(Color.decode("#aa0000"));
+			exitButton.setForeground(Color.WHITE);
+			exitButton.setFont(new Font("Verdana", Font.BOLD, 24));
+			exitButton.setBorder(null);
+			exitButton.setFocusable(false);
+			exitButton.setPreferredSize(new Dimension(200, 60));
+			exitButton.addActionListener(e -> {
+				endGameWindow.dispose();
+				System.exit(0);
+			});
+
+			JPanel buttonPanel = new JPanel();
+			buttonPanel.setBackground(Color.DARK_GRAY);
+			buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 30, 20));
+			buttonPanel.add(exitButton);
+
+			endGameWindow.add(resultLabel, BorderLayout.CENTER);
+			endGameWindow.add(buttonPanel, BorderLayout.SOUTH);
+			endGameWindow.setVisible(true);
+		});
 	}
 
 	public static void main(String[] args) {
@@ -187,11 +237,18 @@ public class Main {
 			mainMenu.dispose();
 
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+				running = false;
 				GameAudio.shutdown();
+				try {
+					if (socket != null && !socket.isClosed()) {
+						socket.close();
+					}
+				} catch (IOException ex) {
+					ex.printStackTrace();
+				}
 			}));
 
 			new Thread(() -> {
-
 				try {
 					socket = new Socket(passedIp[0], passedPort[0]);
 					pw = new PrintWriter(socket.getOutputStream(), true);
@@ -205,17 +262,17 @@ public class Main {
 				}
 
 				if (socket == null) {
-					System.out.println("Connection Refused or unavalable");
+					System.out.println("Connection Refused or unavailable");
 					System.exit(-1);
 				}
 
 				if (pw == null) {
-					System.out.println("Error");
+					System.out.println("Error creating PrintWriter");
 					System.exit(-1);
 				}
 
 				if (br == null) {
-					System.out.println("Error");
+					System.out.println("Error creating BufferedReader");
 					System.exit(-1);
 				}
 
@@ -223,7 +280,6 @@ public class Main {
 				pw.println(Window.screen.width + "x" + Window.screen.height);
 
 				try {
-
 					final JFrame[] waitingWindow = new JFrame[1];
 					new Thread(() -> {
 						waitingWindow[0] = new JFrame("Waiting...");
@@ -245,8 +301,7 @@ public class Main {
 					String[] pos = br.readLine().split(";");
 					Main.startingPos = new Point(Integer.parseInt(pos[0]), Integer.parseInt(pos[1]));
 
-					while ((line = br.readLine()) != null && !line.equals("START"))
-						;
+					while ((line = br.readLine()) != null && !line.equals("START"));
 
 					if (waitingWindow[0] != null) {
 						waitingWindow[0].dispose();
@@ -255,10 +310,47 @@ public class Main {
 					Window w = new Window();
 					GameTimer timer = new GameTimer();
 					GameObject.setDebugMode(false);
+					
+					Enemy enemy = (Enemy) w.gameObjects.get(1);
+					new Thread(() -> {
+						try {
+							while (running && !socket.isClosed() && !gameEnded) {
+								String posLine = br.readLine();
+								if (posLine != null && !posLine.isEmpty()) {
+									String[] enemyPos = posLine.split(";");
+									if (enemyPos.length == 2) {
+										Point enemyPosition = new Point(
+											Integer.parseInt(enemyPos[0].trim()),
+											Integer.parseInt(enemyPos[1].trim())
+										);
+										enemy.updateEnemyPosition(enemyPosition);
+									}
+								}
+								
+								String hpLine = br.readLine();
+								if (hpLine != null && !hpLine.isEmpty()) {
+									int enemyHp = Integer.parseInt(hpLine.trim());
+									enemy.updateEnemyHp(enemyHp);
+								}
+								
+								ArrayList<Bullet> enemyBullets = new ArrayList<>();
+								String bulletLine;
+								while ((bulletLine = br.readLine()) != null && !bulletLine.isEmpty()) {
+									enemyBullets.add(new Bullet(bulletLine, Color.decode("#bf4b8f")));
+								}
+								enemy.updateEnemyBullets(enemyBullets);
+							}
+						} catch (IOException ex) {
+							if (running && !gameEnded) {
+								System.err.println("Error receiving data from server: " + ex.getMessage());
+							}
+						}
+					}).start();
+
 					final double TARGET_FPS = 60.0;
 					final double TARGET_FRAME_TIME = 1000.0 / TARGET_FPS;
 
-					while (true) {
+					while (running && !gameEnded) {
 						long frameStart = System.currentTimeMillis();
 
 						float deltaTime = timer.update();
@@ -282,7 +374,52 @@ public class Main {
 						w.gameObjects.forEach(obj -> {
 							p.checkForHit(obj);
 						});
-												
+						
+						ArrayList<Bullet> hittingBullets = new ArrayList<>();
+						for (Bullet b : Enemy.bullets) {
+							if (p.hitbox[0].intersects(b.hitbox) && !b.hasHitted()) {
+								p.hp -= Bullet.damage;
+								b.setHitted(true);
+								if (GameObject.debugMode)
+									System.out.println("Player HP: " + p.hp);
+							}
+							if (b.hasHitted()) {
+								hittingBullets.add(b);
+							}
+						}
+						Enemy.bullets.removeAll(hittingBullets);
+
+						if (p.hp <= 0 || enemy.hp <= 0) {
+							gameEnded = true;
+							running = false;
+							
+							SwingUtilities.invokeLater(() -> {
+								w.setVisible(false);
+								w.dispose();
+							});
+							
+							String result;
+							if (p.hp <= 0 && enemy.hp <= 0) {
+								result = "DRAW!";
+							} else if (p.hp <= 0) {
+								result = "DEFEAT!";
+							} else {
+								result = "VICTORY!";
+							}
+							
+							showEndGameWindow(result);
+							
+							try {
+								if (socket != null && !socket.isClosed()) {
+									socket.close();
+								}
+							} catch (IOException ex) {
+								ex.printStackTrace();
+							}
+							
+							break;
+						}
+
 						w.g.repaint();
 
 						long frameTime = System.currentTimeMillis() - frameStart;

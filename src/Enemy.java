@@ -3,7 +3,6 @@ import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.io.IOException;
 import java.util.ArrayList;
 
 public class Enemy extends GameObject {
@@ -12,6 +11,9 @@ public class Enemy extends GameObject {
     int hpBarHeight = 20;
     public static ArrayList<Bullet> bullets = new ArrayList<>(); 
     
+    private Point pendingPosition = null;
+    private Integer pendingHp = null;
+    private ArrayList<Bullet> pendingBullets = new ArrayList<>();
 
     public Enemy(String ObjectName, Rectangle[] hitbox, Image[] sprite, int x, int y) {
         super(ObjectName, hitbox, sprite, x, y);
@@ -19,66 +21,44 @@ public class Enemy extends GameObject {
 
     @Override
     public void UpdatePosition(float deltaTime) {
-        Point enemyPosition = getEnemyPosition();
-        if (enemyPosition != null) {
-            this.x = enemyPosition.x;
-            this.y = enemyPosition.y;
+        if (pendingPosition != null) {
+            this.x = pendingPosition.x;
+            this.y = pendingPosition.y;
+            pendingPosition = null;
         }
-        String readed;
-        bullets.removeAll(bullets);
-        try {
-			while(!(readed = Main.br.readLine()).isEmpty()) {
-				bullets.add(new Bullet(readed, Color.decode("#bf4b8f")));
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
         
-        this.updateHp();
+        if (pendingHp != null) {
+            this.hp = pendingHp;
+            if (this.hp < 0) this.hp = 0;
+            if (this.hp > 100) this.hp = 100;
+            pendingHp = null;
+        }
+        
+        if (!pendingBullets.isEmpty()) {
+            bullets.clear();
+            bullets.addAll(pendingBullets);
+            pendingBullets.clear();
+        }
+        
         this.hitbox = this.updateHitbox();
+        
         bullets.removeIf(bullet -> {
             bullet.updateBullet(deltaTime);
-            if(bullet.hasHitted()) {
-            	this.hp -= Bullet.damage;
-            }
             return bullet.bulletExploded();
         });
     }
-
-    private Point getEnemyPosition() {
-        Point enemyPosition = null;
-        try {
-            String line = Main.br.readLine();
-            if (line != null && !line.isEmpty()) {
-                String[] pos = line.split(";");
-                if (pos.length == 2) {
-                    enemyPosition = new Point(
-                        Integer.parseInt(pos[0].trim()),
-                        Integer.parseInt(pos[1].trim())
-                    );
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading enemy position: " + e.getMessage());
-        } catch (NumberFormatException e) {
-            System.err.println("Error parsing enemy position: " + e.getMessage());
-        }
-        return enemyPosition;
+    
+    public void updateEnemyPosition(Point position) {
+        this.pendingPosition = position;
     }
     
-    private void updateHp() {
-        try {
-            String hpLine = Main.br.readLine();
-            if (hpLine != null && !hpLine.isEmpty()) {
-                this.hp = Integer.parseInt(hpLine.trim());
-                if (this.hp < 0) this.hp = 0;
-                if (this.hp > 100) this.hp = 100;
-            }
-        } catch (NumberFormatException e) {
-            System.err.println("Error parsing HP: " + e.getMessage());
-        } catch (IOException e) {
-            System.err.println("Error reading HP: " + e.getMessage());
-        }
+    public void updateEnemyHp(int hp) {
+        this.pendingHp = hp;
+    }
+    
+    public void updateEnemyBullets(ArrayList<Bullet> newBullets) {
+        this.pendingBullets.clear();
+        this.pendingBullets.addAll(newBullets);
     }
 
     public int getCenterX() {

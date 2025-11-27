@@ -14,7 +14,7 @@ public class Player extends GameObject {
     float currentVelocityY = 0;
     float acceleration = 2000.0f; 
     float deceleration = 1500.0f;
-    int hp = 100;
+    public int hp = 100;  // Cambiato da private a public per accesso da Main
     int hpBarWidth = 100;
     int hpBarHeight = 20;
     
@@ -182,13 +182,16 @@ public class Player extends GameObject {
     public void UpdatePosition(float deltaTime) {
         this.hitbox = updateHitbox();
         
+        // Invia dati al server
         try {
             if (Main.pw != null) {
                 Main.pw.println((int)this.x + ";" + (int)this.y);
+                Main.pw.println(this.hp);
                 for(Bullet bullet : bullets) {
                 	Main.pw.println(bullet.toString());
                 }
                 Main.pw.println();
+                Main.pw.flush();
             }
         } catch (Exception e) {
             System.err.println("Error sending player data: " + e.getMessage());
@@ -262,6 +265,7 @@ public class Player extends GameObject {
             for(Bullet b : bullets) {
                 if(enemy.checkForBulletPenetration(b.hitbox) && enemy.hp > 0 && !b.hasHitted()) {
                     enemy.hp -= b.damage;
+                    b.setHitted(true);
                     if(GameObject.debugMode)
                         System.out.println("Enemy HP: " + enemy.hp);
                 }
