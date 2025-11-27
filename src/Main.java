@@ -282,7 +282,7 @@ public class Main {
 						w.gameObjects.forEach(obj -> {
 							p.checkForHit(obj);
 						});
-
+												
 						w.g.repaint();
 
 						long frameTime = System.currentTimeMillis() - frameStart;
@@ -326,6 +326,9 @@ public class Main {
 				pw.println(portField.getText());
 				pw.println(ipField.getText());
 				pw.println(nicknameField.getText());
+				passedIp[0] = ipField.getText();
+				passedPort[0] = Integer.parseInt(portField.getText());
+				passedNickname[0] = nicknameField.getText();
 				pw.close();
 			} catch (FileNotFoundException e1) {
 				e1.printStackTrace();

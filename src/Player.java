@@ -5,15 +5,7 @@ import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.geom.Line2D;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class Player extends GameObject {
@@ -189,8 +181,19 @@ public class Player extends GameObject {
     @Override
     public void UpdatePosition(float deltaTime) {
         this.hitbox = updateHitbox();
-        Main.pw.println((int)this.x + ";" + (int)this.y);
-        Main.pw.println((int)this.hp);
+        
+        try {
+            if (Main.pw != null) {
+                Main.pw.println((int)this.x + ";" + (int)this.y);
+                for(Bullet bullet : bullets) {
+                	Main.pw.println(bullet.toString());
+                }
+                Main.pw.println();
+            }
+        } catch (Exception e) {
+            System.err.println("Error sending player data: " + e.getMessage());
+        }
+        
         float inputX = 0;
         float inputY = 0;
         
@@ -257,11 +260,10 @@ public class Player extends GameObject {
             ArrayList<Bullet> hittingBullets = new ArrayList<>();
             
             for(Bullet b : bullets) {
-                if(enemy.checkForBulletPenetration(b.hitbox) && enemy.hp > 0) {
+                if(enemy.checkForBulletPenetration(b.hitbox) && enemy.hp > 0 && !b.hasHitted()) {
                     enemy.hp -= b.damage;
                     if(GameObject.debugMode)
-                    	System.out.println("Enemy HP: " + enemy.hp);
-                    b.setHitted(true);
+                        System.out.println("Enemy HP: " + enemy.hp);
                 }
                 if(b.hasHitted()) {
                     hittingBullets.add(b);
@@ -273,7 +275,7 @@ public class Player extends GameObject {
             ArrayList<Bullet> hittingBullets = new ArrayList<>();
             
             for(Bullet b : bullets) {
-                if(tile.checkForIntersection(b.hitbox)) {
+                if(tile.checkForIntersection(b.hitbox) && !b.hasHitted()) {
                     b.setHitted(true);
                 }
                 if(b.hasHitted()) {

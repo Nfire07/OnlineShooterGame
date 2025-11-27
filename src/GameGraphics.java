@@ -32,17 +32,20 @@ public class GameGraphics extends JPanel{
 		
 		Player p = (Player)gameObjects.get(0);
 		
-		
 		if(mousePosition!=null) {
 			p.drawRay(g2d, mousePosition);
 		}
+		
 		p.drawHP(g2d);
+		
 		if(!p.bullets.isEmpty()) {
 			p.bullets.forEach(o -> o.draw(g2d));
 		}
 		
-		
-		
+		if(!Enemy.bullets.isEmpty()) {
+			Enemy.bullets.forEach(o -> o.draw(g2d));
+		}
+
 	}
 
 }
