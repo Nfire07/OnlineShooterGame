@@ -14,7 +14,7 @@ public class Player extends GameObject {
     float currentVelocityY = 0;
     float acceleration = 2000.0f; 
     float deceleration = 1500.0f;
-    public int hp = 100;  // Cambiato da private a public per accesso da Main
+    public int hp = 100;
     int hpBarWidth = 100;
     int hpBarHeight = 20;
     
@@ -182,13 +182,13 @@ public class Player extends GameObject {
     public void UpdatePosition(float deltaTime) {
         this.hitbox = updateHitbox();
         
-        // Invia dati al server
+        // Invia la posizione del CENTRO del player al server, non l'angolo in alto a sinistra
         try {
             if (Main.pw != null) {
-                Main.pw.println((int)this.x + ";" + (int)this.y);
+                Main.pw.println(getCenterX() + ";" + getCenterY());
                 Main.pw.println(this.hp);
                 for(Bullet bullet : bullets) {
-                	Main.pw.println(bullet.toString());
+                    Main.pw.println(bullet.toString());
                 }
                 Main.pw.println();
                 Main.pw.flush();

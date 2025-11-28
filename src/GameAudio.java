@@ -13,6 +13,7 @@ public class GameAudio {
     private static ExecutorService audioExecutor = Executors.newFixedThreadPool(4);
     private static final int MAX_POOL_SIZE = 8;
     private static ArrayList<ClipPool> clipPools = new ArrayList<>();
+    public static boolean AUDIO_DISABLED = true;
     
     static class ClipPool {
         private ArrayList<Clip> availableClips = new ArrayList<>();
@@ -64,6 +65,8 @@ public class GameAudio {
     }
     
     public static void playSound(int index) {
+    	if(AUDIO_DISABLED)
+    		return;
         if(index < 0 || index >= clipPools.size()) { 
             System.err.println("Indice suono non valido: " + index);
             return;

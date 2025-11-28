@@ -22,8 +22,8 @@ public class Enemy extends GameObject {
     @Override
     public void UpdatePosition(float deltaTime) {
         if (pendingPosition != null) {
-            this.x = pendingPosition.x;
-            this.y = pendingPosition.y;
+            this.x = pendingPosition.x - sprite[currentSprite].getWidth(null) / 2;
+            this.y = pendingPosition.y - sprite[currentSprite].getHeight(null) / 2;
             pendingPosition = null;
         }
         

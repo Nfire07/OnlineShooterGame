@@ -52,26 +52,26 @@ public class Window extends JFrame {
         GameMap gameMap = new GameMap(Main.GAME_MAP, screen.width, screen.height);
         gameObjects.addAll(gameMap.generateTiles());
 
-        int[] playerPos = new int[] {Main.startingPos.x , Main.startingPos.y};
-        if (playerPos != null) {
-            gameObjects.get(0).x = playerPos[0] - 10;  
-            gameObjects.get(0).y = playerPos[1] - 10;
+        // Posiziona il Player usando la posizione ricevuta dal server
+        // La posizione è già centrata sul tile, quindi sottraiamo metà della dimensione dell'entità
+        if (Main.startingPos != null) {
+            gameObjects.get(0).x = Main.startingPos.x - entitySize / 2;  
+            gameObjects.get(0).y = Main.startingPos.y - entitySize / 2;
             gameObjects.get(0).hitbox = gameObjects.get(0).updateHitbox();
             gameObjects.get(0).setVisible(true);
         }
 
-        int[] enemyPos = new int[] {-10000 , -10000};
-        if (enemyPos != null) {
-            gameObjects.get(1).x = enemyPos[0] - 10;  
-            gameObjects.get(1).y = enemyPos[1] - 10;
-            gameObjects.get(1).hitbox = gameObjects.get(1).updateHitbox();
-            gameObjects.get(1).setVisible(false);  
-        }
+        // Posiziona l'Enemy fuori dallo schermo inizialmente
+        // La posizione reale verrà ricevuta dal server durante il gioco
+        gameObjects.get(1).x = -entitySize;  
+        gameObjects.get(1).y = -entitySize;
+        gameObjects.get(1).hitbox = gameObjects.get(1).updateHitbox();
+        gameObjects.get(1).setVisible(false);
         
         tempImage.clear();
         tempHitbox.clear();
         
-        this.g = new GameGraphics(gameObjects,gameMap);
+        this.g = new GameGraphics(gameObjects, gameMap);
         g.setLocation(0, 0);
         g.setSize(screen);
         g.setBackground(Color.DARK_GRAY);
